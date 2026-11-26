@@ -179,6 +179,8 @@ air mass mobility				moba		m2 s-1		1	0.00E+00	1.00E+20	node
 liquid mass mobility density			mobdl		kg s-1 m-1	1	0.00E+00	1.00E+20	node
 vapor mass mobility density			mobdv		kg s-1 m-1	1	0.00E+00	1.00E+20	node
 air mass mobility density			mobda		kg s-1 m-1	1	0.00E+00	1.00E+20	node
+air pressure mobility				mobpa		m2 s-1		1	0.00E+00	1.00E+25	node
+air pressure mobility density		mobdpa		kg s-1 m-1	1	0.00E+00	1.00E+25	node
 liquid enthalpy mobility			hKl		m2 s-1		1	1.00E-25	1.00E+10	node
 vapor enthalpy mobility				hKv		m2 s-1		1	1.00E-25	1.00E+10	node
 air enthalpy mobility				hKa		m2 s-1		1	1.00E-25	1.00E+10	node

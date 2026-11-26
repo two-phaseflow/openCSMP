@@ -1,0 +1,6 @@
+pure water single-phase, conduction only
+Steady radial conduction in an axisymmetric annulus, structured mesh
+CVFEM_AxisymmetricConduction_Test
+
+annulus r 10-210 m x 400 m, inner wall 150 degC, outer wall 50 degC, k 1e-17 m2, no gravity
+revolved volume = pi (r2^2 - r1^2) H; |T - T_exact(ln r)| < 2 % of the wall difference after 4000 yr

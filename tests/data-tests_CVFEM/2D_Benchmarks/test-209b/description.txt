@@ -1,0 +1,6 @@
+air (hydraulic gas mixture) and pore water, isothermal 20 degC, closed box, no gravity
+Excess air, mobile pore water (liquid saturation 0.5) that backfills the air, smooth excess e = 0.02
+CVFEM_AirCompressionBox_Test
+
+box 200 m x 100 m (mesh of test-207), 1e5 Pa initial, k 1e-13 m2 (end state: uniform pressure, ideal gas)
+air and water mass conserved to 1e-6; pressure spread < 1e-3; mean pressure and p V_a within 1e-3 of the ideal gas; saturations sum to 1 within 1e-9; non-negative

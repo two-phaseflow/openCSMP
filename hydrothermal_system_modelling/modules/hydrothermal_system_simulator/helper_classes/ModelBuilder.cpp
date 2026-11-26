@@ -1008,6 +1008,8 @@ void ModelBuilder<dim>::CreateVariablesFile(bool with_gold,
     variables_file << "previous enthalpy content air\tPCHa\tJ m-3\t1\t0.00E+00\t2.00E+20\tnode" << std::endl;
     variables_file << "air mass mobility\tmoba\tm2 s-1\t1\t0.00E+00\t1.00E+20\tnode" << std::endl;
     variables_file << "air mass mobility density\tmobda\tkg s-1 m-1\t1\t0.00E+00\t1.00E+20\tnode" << std::endl;
+    variables_file << "air pressure mobility\tmobpa\tm2 s-1\t1\t0.00E+00\t1.00E+25\tnode" << std::endl;
+    variables_file << "air pressure mobility density\tmobdpa\tkg s-1 m-1\t1\t0.00E+00\t1.00E+25\tnode" << std::endl;
     variables_file << "air enthalpy mobility\thKa\tm2 s-1\t1\t1.00E-25\t1.00E+10\tnode" << std::endl;
     variables_file << "air enthalpy mobility density\thKad\tm2 s-1\t1\t1.00E-25\t1.00E+10\tnode" << std::endl;
     variables_file << "relperm viscosity air\tMUa_inv\ts Pa-1\t1\t1.00E-07\t1.00E+07\tnode" << std::endl;

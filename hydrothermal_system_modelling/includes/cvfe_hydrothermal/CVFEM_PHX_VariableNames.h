@@ -303,7 +303,11 @@ inline CVFEM_PHX_VariableNames::CVFEM_PHX_VariableNames(
     //conductance_p_upwind_air_variables.push_back("permeability");
     conductance_p_upwind_air_variables.push_back("fluid pressure");
     conductance_p_upwind_air_variables.push_back("fluid pressure");
-    conductance_p_upwind_air_variables.push_back("air mass mobility");
+    // S. Scott, 2026-11-20: the pressure equation balances total mass with the storage term of the liquid; air enters it
+    // weighted by rho_cross / rho_air ("air pressure mobility", NaClH2OPropertiesVisitorPHX::ComputeTotalCompressibility),
+    // i.e. as a volume balance. With the unweighted air mass mobility, air inflow was under-counted ~rho_l / rho_air
+    // (~800x): pressure collapsed in draining cells and spiked when they re-wetted (test-209)
+    conductance_p_upwind_air_variables.push_back("air pressure mobility");
     conductance_p_upwind_air_variables.push_back(thermodymamic_density_in_gravity_term
                                                      ? "density air"
                                                      : "density air transport");
@@ -334,7 +338,7 @@ inline CVFEM_PHX_VariableNames::CVFEM_PHX_VariableNames(
     grav_air_variables.push_back("vertical permeability");
     //grav_air_variables.push_back("permeability");
     grav_air_variables.push_back("fluid pressure");
-    grav_air_variables.push_back("air mass mobility density");
+    grav_air_variables.push_back("air pressure mobility density");   // S. Scott, 2026-11-20: see conductance air
     grav_air_variables.push_back(thermodymamic_density_in_gravity_term
                                      ? "density air"
                                      : "density air transport");
@@ -465,6 +469,8 @@ inline CVFEM_PHX_VariableNames::CVFEM_PHX_VariableNames(
     full_reset_variables.push_back("density air transport");
     full_reset_variables.push_back("relperm viscosity air");
     full_reset_variables.push_back("air mass mobility density");
+    full_reset_variables.push_back("air pressure mobility");
+    full_reset_variables.push_back("air pressure mobility density");
     full_reset_variables.push_back("enthalpy air");
     full_reset_variables.push_back("viscosity air");
     full_reset_variables.push_back("saturation air");

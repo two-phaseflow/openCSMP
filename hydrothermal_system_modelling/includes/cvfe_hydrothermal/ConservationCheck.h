@@ -50,7 +50,8 @@ template<uint32_t> class Model;
     active, expect a residual and subtract it yourself via AddExternalSource():
       - well exchange (enters through mtp in ComputeWellSourceTerms)
       - PointInjection
-      - rain / "fluid source wt" recharge
+      - "fluid source wt" recharge (rain on TOP with air IS counted: "rain recharge top" times pore volume and dt,
+        carrying "specific enthalpy liquid top"; S. Scott, 2026-11-26)
       - magmatic fluid production
       - rock <-> fluid energy is INTERNAL to Htp, so it cancels (by design)
       - split-boundary leakage is INTERNAL (mid receives minus what the matrix
@@ -115,14 +116,19 @@ private:
     csmp::Index
         mt_key_, ms_key_, ma_key_, Htp_key_,
         bfm_key_, bfe_key_, bfs_key_, bfa_key_,
-        pore_volume_key_, bulk_volume_key_;
+        pore_volume_key_, bulk_volume_key_,
+        rain_key_, rain_enthalpy_key_;
 
     ScalarVariable
         mt_, ms_, ma_, Htp_,
         bfm_, bfe_, bfs_, bfa_,
-        pore_volume_, bulk_volume_;
+        pore_volume_, bulk_volume_,
+        rain_, rain_enthalpy_;
 
     bool with_air_, verbose_, have_baseline_;
+    bool with_rain_;   ///< air run with "rain recharge top" defined: rain is counted as an external source
+    // rain mass [kg/s] and energy [W] added this pass, times dt in EndPass
+    double rain_mass_rate_, rain_energy_rate_;
 
     // storage, this pass
     double mass_now_, salt_now_, air_now_, energy_now_;

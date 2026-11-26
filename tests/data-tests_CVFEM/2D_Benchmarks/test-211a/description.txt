@@ -1,0 +1,6 @@
+pure water + air (hydraulic mixture), isothermal 20 degC
+Static water table with air above it, no rain, structured mesh
+CVFEM_RechargeMound_Test
+
+box 600 m x 200 m, water table at 100 m (outlet level), k 2e-13 m2, 0.5 yr
+exact solution: no flow; water table in every column within 2 % (divide) / 5 % (columns) of 100 m

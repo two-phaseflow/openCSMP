@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 #include "ExplicitFiniteVolumeTransportPHX.h"
+#include "TwoPointTransmissibility.h"
 #include "Region.h"
 #include "ErrorHandler.h"
 #include "finiteVolumeAuxiliaryFunctions.h"
@@ -33,7 +34,8 @@ ExplicitFiniteVolumeTransportPHX<dim>::ExplicitFiniteVolumeTransportPHX( Model<d
     mass_balance_vectors(lhs_property.size()),
     facet_flux_vectors(lhs_property.size()),
     max_time_step(8640000.),
-    with_gravity(false)
+    with_gravity(false),
+    two_point_facet_velocities_(false)
 {
     cout <<endl<< "Constructing ExplicitFiniteVolumeTransportPHX";
 
@@ -61,6 +63,8 @@ ExplicitFiniteVolumeTransportPHX<dim>::ExplicitFiniteVolumeTransportPHX( Model<d
     pv_key  =  model.Database().StorageKey( "pore volume" );
     rho_key  =  model.Database().StorageKey( density );
     thickness_key = model.Database().StorageKey( "thickness" );//Benoit 2025 add
+    pressure_key_ = model.Database().StorageKey( "fluid pressure" );                     // S. Scott, 2026-11-20
+    permeability_tensor_key_ = model.Database().StorageKey( "permeability tensor" );     // S. Scott, 2026-11-20
 
     pl_key.resize( lhs_property.size() );
     pr_key.resize( rhs_property.size() );
@@ -481,6 +485,62 @@ template<uint32_t dim>
 void ExplicitFiniteVolumeTransportPHX<dim>::UpdateProjection(  )
 {
     NodeCenteredFiniteVolumeTransport<dim>::UpdateProjectedVelocitiesAndFluxBalances( );
+    if ( two_point_facet_velocities_ )
+        ReplaceFacetVelocitiesByTwoPointDifferences();
+}
+
+// S. Scott, 2026-11-20: see the header
+template<uint32_t dim>
+void ExplicitFiniteVolumeTransportPHX<dim>::UseTwoPointFacetVelocities( bool on )
+{
+    two_point_facet_velocities_ = on;
+}
+
+template<uint32_t dim>
+bool ExplicitFiniteVolumeTransportPHX<dim>::TwoPointFacetVelocities() const
+{
+    return two_point_facet_velocities_;
+}
+
+/** S. Scott, 2026-11-20: facet velocity T (Phi_a - Phi_b) / A_f with Phi = p - rho g.x (rho: mean of the two nodes),
+    minus the gravity term k rho g.n that the stencil processor and the upwind control add afterwards, so that their
+    sum is the two-point value. */
+template<uint32_t dim>
+void ExplicitFiniteVolumeTransportPHX<dim>::ReplaceFacetVelocitiesByTwoPointDifferences()
+{
+    std::vector<double> g( dim, 0. );
+    g[ dim == 1U ? 0U : 1U ] = -9.80665;   // as StencilProcessorPHX
+    const VectorVariable<dim> gravity( g );
+    std::vector<double> transmissibility;
+
+    for ( auto eit = region_ref.CellsBegin(); eit != region_ref.CellsEnd(); ++eit )
+    {
+        Element<dim>& e( **eit );
+        TensorVariable<dim> permeability;
+        e.Read( permeability_tensor_key_, permeability );
+        if ( !twoPointTransmissibilities( e, permeability, transmissibility ) )
+            continue;   // not a linear simplex: keep the element-gradient velocity
+        FV_Parameter& stencil( NodeCenteredFiniteVolumeTransport<dim>::STENCIL_DATA[ e.Idx() ] );
+        ScalarVariable vertical_permeability;
+        e.Read( k_key, vertical_permeability );
+        for ( uint32_t i{0U}; i<stencil.Facets(); i++ )
+        {
+            uint32_t a{0U}, b{0U};
+            e.FV()->FacetEdgeNodes( i, a, b );
+            double potential_difference{ e.N(a)->Read( pressure_key_ ) - e.N(b)->Read( pressure_key_ ) };
+            double velocity_correction{0.};
+            if ( with_gravity )
+            {
+                const double rho_a{ e.N(a)->Read( rho_key ) }, rho_b{ e.N(b)->Read( rho_key ) };
+                const double rho{ ( rho_a > 0. && rho_b > 0. ) ? 0.5 * ( rho_a + rho_b ) : std::max( rho_a, rho_b ) };
+                for ( uint32_t r{0U}; r<dim; r++ )
+                    potential_difference -= rho * gravity(r) * ( e.N(a)->Coordinate()[r] - e.N(b)->Coordinate()[r] );
+                velocity_correction = vertical_permeability() * rho * stencil.FacetNormalProjection( i, gravity );
+            }
+            stencil.FacetNormalVelocity( i, transmissibility[i] * potential_difference / stencil.FacetArea(i)
+                                            - velocity_correction );
+        }
+    }
 }
 
 /** update projection of velocity onto the facet */

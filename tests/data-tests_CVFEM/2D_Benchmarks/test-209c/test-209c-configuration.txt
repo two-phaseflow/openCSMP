@@ -1,0 +1,38 @@
+CLOSED-BOX AIR COMPRESSION (CVFEM_AirCompressionBox_Test)
+
+# (block2) default property values
+# Closed box 200 m x 100 m (mesh of test-207), all sides no-flow and insulated, no gravity, isothermal. The test sets
+# the liquid saturation and the air (the filling amount at 1e5 Pa times 1 + e (1 + cos(pi x / L)), see the test);
+# air in the hydraulic-mixture mode. End state: uniform pressure p, p (V_pore - M_w / rho_l) = M_a R_a T.
+fluid pressure			1.e5				# [Pa] initial, uniform
+temperature			20.				# [C] isothermal
+permeability			1.e-13				# [m2]
+vertical permeability		1.e-13				# [m2]
+horizontal permeability		1.e-13				# [m2]
+porosity			0.1				# [-]
+nodal porosity			0.1				# [-]
+salinity			0.				# [wt%] pure water
+thermal conductivity		2.				# [W m-1 K-1]
+nodal heat capacity rock	1000.				# [J kg-1 K-1] passed to the CVFEM scheme by the test
+density rock			2700.				# [kg m-3]
+nodal density rock		2700.				# [kg m-3]
+lithostatic pressure		1.e5				# [Pa]
+nodal compressibility rock	1.e-15				# [Pa-1]
+gravity flag			0.
+thickness			1.				# [m] 2D model
+no standard output		1
+cfl scaling			0.5				# pore-velocity CFL criterion
+
+# (block3) regional property values
+
+# (block4) boundary conditions for box-shaped model
+# none: all sides no-flow and insulated
+
+# (block5) essential conditions for regions
+
+# (block6) csmp::Boundary properties
+
+# (block7) run settings [years]
+duration	0.2
+time increment	0.004
+output time	0.12

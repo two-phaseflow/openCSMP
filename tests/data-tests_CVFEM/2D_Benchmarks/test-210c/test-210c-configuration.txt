@@ -1,0 +1,43 @@
+STEADY HEAT TRANSFER WITH RADIAL OUTFLOW IN AN AXISYMMETRIC ANNULUS (CVFEM_AxisymmetricAnnulus_Test) -- structured mesh
+
+# (block2) default property values
+# Annulus about the axis x = 0, r 50-250 m, 400 m high. Inner wall 150 C and 10.5 MPa, outer wall 50 C and 10 MPa,
+# top and base closed and insulated, no gravity. Hot water flows outward at about 2.5 kg/s (Peclet number
+# A = c m / (2 pi H lambda) ~ 2); exact steady solution T = T1 + (T2 - T1) (r^A - r1^A) / (r2^A - r1^A), with m and c
+# measured by the test. The steady profile does not depend on porosity, heat capacity or the CFL factor; porosity
+# 0.3 and CFL factor 0.5 keep the pore velocity and the step count low (steady within 0.01 K after 1500 yr).
+fluid pressure			1.e7				# [Pa] single-phase liquid at all temperatures of the test
+temperature			50.				# [C] uniform start at the outer-wall value
+permeability			1.e-15				# [m2]
+vertical permeability		1.e-15				# [m2]
+horizontal permeability		1.e-15				# [m2]
+porosity			0.3				# [-]
+nodal porosity			0.3				# [-]
+salinity			0.				# [wt%] pure water
+thermal conductivity		2.				# [W m-1 K-1]
+nodal heat capacity rock	1000.				# [J kg-1 K-1] passed to the CVFEM scheme by the test
+density rock			2700.				# [kg m-3]
+nodal density rock		2700.				# [kg m-3]
+lithostatic pressure		1.e7				# [Pa]
+nodal compressibility rock	1.e-15				# [Pa-1]
+gravity flag			0.
+thickness			1.				# [m] replaced by 2 pi r by the test
+no standard output		1
+cfl scaling			0.5				# pore-velocity CFL criterion
+
+# (block3) regional property values
+
+# (block4) boundary conditions for box-shaped model
+LEFT	DIRICH	temperature		150.	150.
+LEFT	DIRICH	fluid pressure		1.05e7	1.05e7
+RIGHT	DIRICH	temperature		50.	50.
+RIGHT	DIRICH	fluid pressure		1.e7	1.e7
+
+# (block5) essential conditions for regions
+
+# (block6) csmp::Boundary properties
+
+# (block7) run settings [years]
+duration	1500.
+time increment	20.
+output time	1500.

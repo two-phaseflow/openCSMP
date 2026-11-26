@@ -1,0 +1,41 @@
+STEADY CONDUCTION IN AN AXISYMMETRIC ANNULUS -- unstructured mesh (CVFEM_AxisymmetricConduction_Test)
+
+# (block2) default property values
+# Annulus about the axis x = 0, r 10-210 m, 400 m high. Inner wall 150 C, outer wall 50 C, top and base insulated.
+# Exact steady solution T = T1 + (T2 - T1) ln(r/r1) / ln(r2/r1). Conduction only: low permeability, high pressure
+# held by fixed-pressure walls, no gravity. Diffusion time (r2 - r1)^2 / kappa ~ 1700 yr; the run lasts 4000 yr.
+fluid pressure			1.e7				# [Pa] single-phase liquid at all temperatures of the test
+temperature			50.				# [C] uniform start at the outer-wall value
+permeability			1.e-17				# [m2]
+vertical permeability		1.e-17				# [m2]
+horizontal permeability		1.e-17				# [m2]
+porosity			0.01				# [-]
+nodal porosity			0.01				# [-]
+salinity			0.				# [wt%] pure water
+thermal conductivity		2.				# [W m-1 K-1]
+nodal heat capacity rock	1000.				# [J kg-1 K-1] passed to the CVFEM scheme by the test
+density rock			2700.				# [kg m-3]
+nodal density rock		2700.				# [kg m-3]
+lithostatic pressure		1.e7				# [Pa]
+nodal compressibility rock	1.e-15				# [Pa-1]
+gravity flag			0.
+thickness			1.				# [m] replaced by 2 pi r by the test
+no standard output		1
+cfl scaling			0.1				# pore-velocity CFL criterion
+
+# (block3) regional property values
+
+# (block4) boundary conditions for box-shaped model
+LEFT	DIRICH	temperature		150.	150.
+LEFT	DIRICH	fluid pressure		1.e7	1.e7
+RIGHT	DIRICH	temperature		50.	50.
+RIGHT	DIRICH	fluid pressure		1.e7	1.e7
+
+# (block5) essential conditions for regions
+
+# (block6) csmp::Boundary properties
+
+# (block7) run settings [years]
+duration	4000.
+time increment	20.
+output time	4000.

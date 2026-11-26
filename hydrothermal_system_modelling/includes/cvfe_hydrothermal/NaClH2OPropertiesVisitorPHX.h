@@ -33,6 +33,10 @@ public:
 
     // ── Setup ─────────────────────────────────────────────────────────────────
     void SetVerbose(bool verbose) { verbose_output = verbose; }
+    /// Axisymmetric 2-D: TOP-face rain shares weighted by the revolved face area (see AxisymmetricThickness.h).
+    /// factor as AxisymmetricSettings (2 pi: axis on a boundary; pi: axis inside the mesh), 0 = plane (default). Must be set
+    /// before ActivateAir's rain set-up runs.
+    void SetAxisymmetricRain(double axis_x, double factor) { axisym_axis_x_ = axis_x; axisym_factor_ = factor; }
     void SetTimeIncrement( double time_increment );
     void InitialPropertiesFromPTX( Model<dim>& );
 
@@ -92,6 +96,8 @@ public:
     };
 
 private:
+    double axisym_axis_x_ = 0.;
+    double axisym_factor_ = 0.;
 
     // =====================================================================
     //  INFRASTRUCTURE
@@ -138,6 +144,15 @@ private:
     // (direct excess air removal). Must be consistent between both.
     double min_h2o_nacl_fraction = 0.02;
     //double sa_maximum = 0.;
+    /// S. Scott, 2026-11-20: Bulk.rho / rho_air, the weight that makes the air mass of the pressure equation (fluxes,
+    /// storage, air beyond the saturation cap) count as volume, like the liquid (see ComputeTotalCompressibility).
+    double AirPressureWeight() const;
+    /// Stores "air pressure mobility (density)" = air mass mobility (density) x AirPressureWeight().
+    void StoreAirPressureMobilities( Node<dim>* n );
+    /// Open-boundary inflow is liquid at nodes held above atmospheric pressure (submerged), humid air at the others
+    /// (the land surface); the margin is about 0.1 m of water.
+    static constexpr double atmospheric_pressure_      = 101325.;   // [Pa]
+    static constexpr double submerged_pressure_margin_ = 1000.;     // [Pa]
 
     // ── Brooks-Corey relative permeability ────────────────────────────────
     // When enabled, both kr_liquid and kr_gas are computed from a Brooks-
@@ -376,6 +391,7 @@ private:
     csmp::Index msp_key;
     csmp::Index src_h_key, src_rate_key, src_wt_key;
     csmp::Index mml_key, mmv_key, mma_key, mmld_key, mmvd_key, mmad_key;
+    csmp::Index mmap_key, mmadp_key;   // S. Scott, 2026-11-20: air pressure mobility (density)
     csmp::Index eml_key, emv_key, ema_key, emld_key, emvd_key, emad_key;
     csmp::Index xml_key, xmv_key;
     csmp::Index rvl_key, rvv_key, rva_key;

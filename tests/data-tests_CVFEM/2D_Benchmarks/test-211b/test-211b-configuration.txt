@@ -1,0 +1,42 @@
+GROUNDWATER MOUND UNDER UNIFORM RAIN (CVFEM_RechargeMound_Test)
+
+# (block2) default property values
+# Box 600 m x 200 m, isothermal 20 C, air (hydraulic mixture) with rain 0.96 m/yr on the land surface (set by the
+# test). Land surface at 1 atm; outlet water level 100 m above the base on the RIGHT side (set by the test); divide
+# (LEFT) and base closed. Dupuit: h(0) = sqrt(h0^2 + (W/K) L^2) ~ 125 m. Starts with the water table flat at 100 m
+# (air above it at the residual liquid saturation 0.3); the rain builds the mound.
+fluid pressure			101325.				# [Pa] initial guess; replaced by the hydrostatic initialisation
+temperature			20.				# [C]
+permeability			2.e-13				# [m2]
+vertical permeability		2.e-13				# [m2]
+horizontal permeability		2.e-13				# [m2]
+porosity			0.1				# [-]
+nodal porosity			0.1				# [-]
+salinity			0.				# [wt%] pure water
+thermal conductivity		2.				# [W m-1 K-1]
+nodal heat capacity rock	1000.				# [J kg-1 K-1] passed to the CVFEM scheme by the test
+density rock			2700.				# [kg m-3]
+nodal density rock		2700.				# [kg m-3]
+lithostatic pressure		101325.				# [Pa]
+nodal compressibility rock	1.e-15				# [Pa-1]
+gravity flag			1.
+thickness			1.				# [m] 2D model
+no standard output		1
+cfl scaling			0.5				# pore-velocity CFL criterion
+
+# (block3) regional property values
+
+# (block4) boundary conditions for box-shaped model
+TOP	DIRICH	fluid pressure		101325.	101325.
+TOP	DIRICH	lithostatic pressure	101325.	101325.
+TOP	DIRICH	temperature		20.	20.
+RIGHT	DIRICH	temperature		20.	20.
+
+# (block5) essential conditions for regions
+
+# (block6) csmp::Boundary properties
+
+# (block7) run settings [years]
+duration	25.
+time increment	1.
+output time	25.

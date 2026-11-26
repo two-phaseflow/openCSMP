@@ -93,6 +93,14 @@ public:
     double GetProjectedVelocities( Element<dim>& e, uint32_t i );
 
     double GetFacetNormalVelocity( size_t element, uint32_t facet );
+
+    /// S. Scott, 2026-11-20: facet velocities of this phase from two-point (edge) potential differences instead of
+    /// the element pressure gradient, on linear simplices (TwoPointTransmissibility.h); other elements keep the
+    /// element gradient. Each phase is then in hydrostatic balance on its own: next to a water table the air flux
+    /// does not pick up the liquid's hydrostatic gradient. Pair with the two-point pressure-equation operators
+    /// (CVFEM_TwoPointUpwind_dNT_op_dN_dV, CVFEM_TwoPointUpwind_rhsop_g_dV).
+    void UseTwoPointFacetVelocities( bool on );
+    bool TwoPointFacetVelocities() const;
     double GetFacetNormalComponent( size_t element, uint32_t facet, uint32_t x_or_y_or_z );
     double GetFacetArea( size_t element, uint32_t facet );
 
@@ -116,8 +124,13 @@ protected:
     void  CalculateFluxIn();
     void  GetUpwindMatrix( const Element<dim>& e, std::vector<DenseMatrix<DM_MIN> >& upwind_visitor );
 
+    /// Replaces the facet normal velocities by the two-point values, see UseTwoPointFacetVelocities.
+    void  ReplaceFacetVelocitiesByTwoPointDifferences();
+
     double  internal_time_step, max_time_step, single_phase_time_step_factor;
     bool with_gravity;
+    bool two_point_facet_velocities_;
+    csmp::Index pressure_key_, permeability_tensor_key_;
     DenseMatrix<DM_MIN>  upwind;
 
     csmp::Index               k_key, rho_key, pv_key;

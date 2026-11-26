@@ -44,6 +44,7 @@ UpwindControlVisitor<dim>::UpwindControlVisitor( Model<dim>& model,
     cfl_with_pore_velocity(true)           // default = true; see DetermineUpwindNodes
 {
     if (dim==3U) xyz = 2;
+    ResetCflDiagnostics();   // S. Scott, 2026-11-20: the diagnostics were read before the first reset
     // ── Vertical-axis index for the gravity term ─────────────────────────────
     // Benoit: xyz-1 and VERTICAL_AXIS agree in every
     // dimension — they both give 0,1,1 (x,y,y) for dim 1,2,3:

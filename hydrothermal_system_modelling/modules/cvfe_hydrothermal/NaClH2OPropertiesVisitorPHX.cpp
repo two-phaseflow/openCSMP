@@ -119,9 +119,11 @@ NaClH2OPropertiesVisitorPHX<dim>::NaClH2OPropertiesVisitorPHX( Model<dim>& model
     mml_key  = pref.StorageKey("liquid mass mobility");
     mmv_key  = pref.StorageKey("vapor mass mobility");
     mma_key  = pref.StorageKey("air mass mobility");
+    mmap_key = pref.StorageKey("air pressure mobility");          // S. Scott, 2026-11-20: pressure equation only
     mmld_key = pref.StorageKey("liquid mass mobility density");
     mmvd_key = pref.StorageKey("vapor mass mobility density");
     mmad_key = pref.StorageKey("air mass mobility density");
+    mmadp_key = pref.StorageKey("air pressure mobility density");  // S. Scott, 2026-11-20: pressure equation only
 
     eml_key  = pref.StorageKey("liquid enthalpy mobility");
     emv_key  = pref.StorageKey("vapor enthalpy mobility");
@@ -1275,7 +1277,10 @@ void NaClH2OPropertiesVisitorPHX<dim>::UpdateCSMPVariables( Node<dim>* n )
     // zeroing is not reported as bogus EOS output. hV/xV flux densities stay —
     // intensive EOS quantities; with zero upwind mass nothing is exported.)
     constexpr double MT_EMPTY_TOL = 1.e-9;   // per-PV; transport dry convention
-    if ( fabs(mt()) < MT_EMPTY_TOL )
+    // With air a node can keep its air after the last water has gone: test the H2O part (mt - ma then cancels to
+    // round-off and VolumeFactorComputations would abort on the sign of mvl).
+    const double m_h2o_transported = with_air ? mt() - ma() : mt();
+    if ( fabs(m_h2o_transported) < MT_EMPTY_TOL )
     {
         ml()  = 0.;   mv()  = 0.;
         hCl() = 0.;   hCv() = 0.;
@@ -1420,6 +1425,10 @@ void NaClH2OPropertiesVisitorPHX<dim>::VolumeFactorComputations( Node<dim>* n )
     //   Air excess (clamped):   nQ > 0 — overpressure expels excess air next step.
     //   H2O-NaCl phase change:  nQ ≠ 0 — normal pressure signal from density change.
     nQ() = mt() - rho_bulk_with_air;
+    // S. Scott, 2026-11-20: the air part of the mismatch, ma - ra sa (air beyond the saturation cap), enters the
+    // pressure equation as volume, like the air fluxes (AirPressureWeight)
+    if (with_air && !full_gas_mixture)
+        nQ() += (AirPressureWeight() - 1.) * (ma() - ra() * sa());
 
 
     // // ── nQ magnitude smoothing (lagged-flash oscillation control) ─────────────
@@ -1500,7 +1509,14 @@ void NaClH2OPropertiesVisitorPHX<dim>::VolumeFactorComputations( Node<dim>* n )
         // p_floor instead of going sub-floor. Same rho_beta as the diagonal, so the
         // predicted landing is exact.
         constexpr bool   avoid_negative_pressures = true;
-        constexpr double p_floor = 1.0e4;
+        double p_floor = 1.0e4;
+        // Flash floor (S. Scott, 2026-11-24): an under-filled single-phase liquid node with
+        // (almost) no air has nothing but vapour to fill the missing volume, and its stiff liquid storage makes the
+        // pressure overshoot straight through the narrow two-phase window to far below saturation (the water then
+        // flashes to an over-full vapour, the pressure spikes and expels water: liquid/vapour flip-flop, HYCOMA). Land
+        // such nodes on the saturation pressure instead, so they equilibrate as liquid + vapour.
+        if (with_air && sv() <= 0. && sl() > 0.99 && nQ() < 0. && t() < 373.9)
+            p_floor = std::max(p_floor, equilibrator.SaturationPressureFromT(t()));
 
         if (avoid_negative_pressures && rho_beta > 0. && p() + expected_dp < p_floor)
         {
@@ -2517,7 +2533,10 @@ double NaClH2OPropertiesVisitorPHX<dim>::BoundaryFlow()
     //
     if (definitelyLessThan(bfm(), 0., numeric_limits<double>::epsilon()))
     {
-        if (with_air)
+        // S. Scott, 2026-11-20: a boundary node held above atmospheric pressure is submerged (below the water table)
+        // and takes in liquid; a node at atmospheric pressure (the land surface) takes in humid air.
+        const bool submerged{p() > atmospheric_pressure_ + submerged_pressure_margin_};
+        if (with_air && !submerged)
         {
             // All inflow is humid air. No rain here anymore.
             const double gas_flow     = bfm();                                // < 0
@@ -2540,9 +2559,10 @@ double NaClH2OPropertiesVisitorPHX<dim>::BoundaryFlow()
         }
         else
         {
-            // No-air case unchanged: inflow is pure liquid at ref composition.
+            // No air, or a submerged boundary node: inflow is pure liquid at ref composition.
             bfe() = bfm() * ref_spec_h_liquid * phi();
             bfs() = bfm() * ref_sal;
+            if (with_air) bfa() = bfm_a = 0.;
         }
     }
 
@@ -2899,6 +2919,21 @@ void NaClH2OPropertiesVisitorPHX<dim>::SetTimeIncrement( double time_increment )
 // (rho_bulk for thermodynamic consistency, else mt). The air cross term is added
 // AFTER scaling, written so rho_scale cancels.
 // ─────────────────────────────────────────────────────────────────────────────
+// S. Scott, 2026-11-20: see the header
+template<uint32_t dim>
+double NaClH2OPropertiesVisitorPHX<dim>::AirPressureWeight() const
+{
+    return (with_air && !full_gas_mixture && ra() > 0.) ? std::max(1., Bulk.rho / ra()) : 1.;
+}
+
+template<uint32_t dim>
+void NaClH2OPropertiesVisitorPHX<dim>::StoreAirPressureMobilities( Node<dim>* n )
+{
+    const double weight{AirPressureWeight()};
+    n->Store( mmap_key, ScalarVariable(ANY, mma() * weight) );
+    n->Store( mmadp_key, ScalarVariable(ANY, mmad() * weight) );
+}
+
 template<uint32_t dim>
 double NaClH2OPropertiesVisitorPHX<dim>::ComputeTotalCompressibility()
 {
@@ -2934,42 +2969,18 @@ double NaClH2OPropertiesVisitorPHX<dim>::ComputeTotalCompressibility()
         ct += beta_rock() * (1.0 - phi());
         ct *= rho_scale;
 
-        // ── AIR CROSS TERM  d(rho_a·sa)/dp ─────────────────────────────────────
-        // Regime-dependent. beta_air is NOT added as a standalone term (double
-        // count). For ideal-gas air, beta_air = 1/p.
-        //
-        //   UNCLAMPED (sa = ma/ra, ma conserved):
-        //       rho_a·sa = ma = const  ⇒  air self-storage d(rho_a·sa)/dp = 0.
-        //       The real storage is liquid backfilling the pore volume the air
-        //       vacates as it compresses → rho_cross = Bulk.rho, term Bulk.rho·sa/p.
-        //       Dominant stabilising feedback at air+liquid nodes (Bulk.rho >> ra).
-        //
-        //   CLAMPED (sa pinned at sa_max, fixed-volume pocket):
-        //       only the trapped air compresses → sa·ra/p, i.e. rho_cross = ra
-        //       (≡ beta_air·ra·sa). ~800× smaller near-atmospheric; using Bulk.rho
-        //       here would over-damp CT and produce fingered drainage fronts.
-        //
-        // Regime detection reconstructs the unclamped sa = ma/ra and compares to
-        // the SAME sa_max used by BoundaryFlow / the post-convergence cap; sat_min
-        // guards against per-step flip-flop at ma = ra·sa_max.
-        //
-        // Added post-scale (rho_scale cancels: the immiscible block above already
-        // carries rho_scale on its beta terms).
-        const double sa_max_physical = std::max(0., 1.0 - sh());
-        const double sa_max_local    = std::min(sa_max_physical,
-                                                1.0 - min_h2o_nacl_fraction);
-        const double sa_unclamped    = (ra() > 0.) ? ma() / ra() : 0.;
-        const bool   air_is_clamped  = (sa_unclamped > sa_max_local + sat_min);
-        const double rho_cross       = air_is_clamped ? ra() : Bulk.rho;
-
+        // ── AIR TERM: volume balance ───────────────────────────────────────────
+        // S. Scott, 2026-11-20: the pressure equation balances volume, scaled by the liquid density Bulk.rho. Air
+        // compresses by sa phi / p per unit pressure (ideal gas, beta_air = 1/p), so its storage is
+        // Bulk.rho sa phi / p, and the air mass fluxes (StoreAirPressureMobilities) and the air beyond the
+        // saturation cap (nQ in VolumeFactorComputations) are weighted by Bulk.rho / ra to count as volume. This
+        // holds with the air saturation at its cap too: the pore water is then pinned at its floor and only the air
+        // compresses. (A separate capped-air storage ra sa phi / p, the earlier form, made capped nodes ~800 times
+        // too stiff against the liquid fluxes, which are not weighted, and the pressure oscillated, test-209c.)
+        // Added post-scale (rho_scale cancels: the immiscible block above already carries rho_scale on its beta
+        // terms).
         if (p() > 0.)
-            ct += rho_cross * sa() * phi() / p();
-
-        // Optional regime diagnostic — enable once to confirm, then silence.
-        // if (air_is_clamped && sa() > sat_min)
-        //     cerr << "[CT] clamped air: sa_uncl=" << sa_unclamped
-        //          << "  sa_max=" << sa_max_local << "  rho_cross=" << rho_cross
-        //          << "  (Bulk.rho=" << Bulk.rho << ", ra=" << ra() << ")\n";
+            ct += Bulk.rho * sa() * phi() / p();
     }
     else
     {
@@ -3339,6 +3350,7 @@ void NaClH2OPropertiesVisitorPHX<dim>::StorePropertiesAndFlags( Node<dim>* n )
 
             n->Store( mma_key,   mma );
             n->Store( mmad_key,   mmad );
+            StoreAirPressureMobilities( n );
             n->Store( ema_key,   ema );
             n->Store( emad_key,   emad );
 
@@ -3484,6 +3496,7 @@ void NaClH2OPropertiesVisitorPHX<dim>::StoreInitialPropertiesAndFlags( Node<dim>
 
     n->Store( mma_key,  mma  );
     n->Store( mmad_key, mmad );
+    StoreAirPressureMobilities( n );
     n->Store( ema_key,  ema  );
     n->Store( emad_key, emad );
 
@@ -4726,7 +4739,17 @@ void NaClH2OPropertiesVisitorPHX<dim>::SetPrecipitationRecharge(Model<dim>& mode
             (*eit)->N(i)->Read(cpv_key, cpv);
             (*eit)->N(i)->Read(rain_recharge_top_key, rain_recharge_top);
 
-            rain_recharge_top() += (cpv() > 0.) ? rain_mass_flux * node_area * horiz_proj / cpv() : 0.;
+            // axisymmetric: the revolved area of the half-face next to node i is factor * L/2 * (3 r_i + r_j)/4
+            // (exact for a straight 2-node face); cpv already includes thickness = factor * r
+            double share = node_area;
+            if constexpr(dim == 2U)
+                if (axisym_factor_ > 0. && (*eit)->Nodes() == 2U)
+                {
+                    const double ri = std::abs((*eit)->N(i)->x() - axisym_axis_x_);
+                    const double rj = std::abs((*eit)->N(1U - i)->x() - axisym_axis_x_);
+                    share = axisym_factor_ * node_area * (3. * ri + rj) / 4.;
+                }
+            rain_recharge_top() += (cpv() > 0.) ? rain_mass_flux * share * horiz_proj / cpv() : 0.;
 
             (*eit)->N(i)->Store(rain_recharge_top_key, rain_recharge_top);
         }
@@ -4734,6 +4757,8 @@ void NaClH2OPropertiesVisitorPHX<dim>::SetPrecipitationRecharge(Model<dim>& mode
     cerr << "\n[SetPrecipitationRecharge]"
          << "  rain=" << rain_mm_per_year_top << " mm/yr"
          << "  flux=" << rain_mass_flux << " kg/m2/s";
+    if (axisym_factor_ > 0.)
+        cerr << "  AXISYMMETRIC (axis x=" << axisym_axis_x_ << ", factor " << axisym_factor_ << ")";
 }
 
 template< uint32_t dim>

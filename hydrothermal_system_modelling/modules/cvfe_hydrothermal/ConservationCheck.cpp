@@ -41,6 +41,7 @@ ConservationCheck<dim>::ConservationCheck(Model<dim>& model,
       bulk_volume_key_ (model.Database().StorageKey("bulk volume")),
 
       with_air_(with_air), verbose_(true), have_baseline_(false),
+      with_rain_(false), rain_mass_rate_(0.), rain_energy_rate_(0.),
 
       mass_now_(0.), salt_now_(0.), air_now_(0.), energy_now_(0.),
       mass_prev_(0.), salt_prev_(0.), air_prev_(0.), energy_prev_(0.),
@@ -103,6 +104,15 @@ void ConservationCheck<dim>::BeginPass()
     worst_bf_abs_  = 0.;
     worst_bf_node_ = 0;
     n_nodes_       = 0;
+    // rain is set up by ActivateAir, possibly after this check was constructed: look the keys up here
+    rain_mass_rate_ = rain_energy_rate_ = 0.;
+    if (with_air_ && !with_rain_ && prop_ref_.IsDefined("rain recharge top")
+        && prop_ref_.IsDefined("specific enthalpy liquid top"))
+    {
+        rain_key_          = prop_ref_.StorageKey("rain recharge top");
+        rain_enthalpy_key_ = prop_ref_.StorageKey("specific enthalpy liquid top");
+        with_rain_         = true;
+    }
 }
 
 template<size_t dim>
@@ -163,6 +173,18 @@ void ConservationCheck<dim>::Visit(Node<dim>* node)
         bf_air_ += bfa_() * pv;
     }
 
+    // rain deposited this step: rain_recharge_top() * dt per pore volume, with the top liquid enthalpy
+    if (with_rain_)
+    {
+        node->Read(rain_key_, rain_);
+        if (rain_() > 0.)
+        {
+            node->Read(rain_enthalpy_key_, rain_enthalpy_);
+            rain_mass_rate_   += rain_() * pv;
+            rain_energy_rate_ += rain_() * pv * rain_enthalpy_();
+        }
+    }
+
     const double abs_bf = fabs(bfm_() * pv);
     if (abs_bf > worst_bf_abs_)
     {
@@ -180,6 +202,9 @@ void ConservationCheck<dim>::EndPass(double model_time, double dt)
     const double d_salt   = salt_now_   - salt_prev_;
     const double d_air    = air_now_    - air_prev_;
     const double d_energy = energy_now_ - energy_prev_;
+
+    ext_mass_   += rain_mass_rate_   * dt;
+    ext_energy_ += rain_energy_rate_ * dt;
 
     if (have_baseline_)
     {

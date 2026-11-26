@@ -25,6 +25,7 @@
 #include "NumIntegral_NT_rhs_nodal_op_N_dV.h"
 #include "CVFEM_Upwind_NumIntegral_dNT_op_dN_dV.h"
 #include "CVFEM_Upwind_NumIntegral_dNT_rhsop_g_dV.h"
+#include "CVFEM_TwoPointUpwind_Operators.h"
 #include "NaClH2OPropertiesVisitorPHX.h"
 #include "LimitVisitor.h"
 #include "PDE_Integrator.h"
@@ -58,6 +59,7 @@ public:
     ~CVFEM_PHX_Scheme();
 
     void SetLargestTimeStep(double timestep);   // modifying maximum size of time step at the start of the simulation
+    void SetAxisymmetricRain(double axis_x, double factor) { equilibrator_properties.SetAxisymmetricRain(axis_x, factor); } // axisymmetric rain weighting
     void SetCutLogLabel(const std::string& label) { dt_cut_log_label_ = label; } // names the dt-cut CSV (public: called from the driver)
     void ResetLargestTimeStep(double timestep);  // modifying in again later during the simulation
     void ChangeTimeStepTo(double timestep);   // adjusting timestep
@@ -73,6 +75,7 @@ public:
     void OpenBoundaries(double wt_top);
 
     void SetBrickWallLimiterTo(bool limit);   // switch brick wall limiter for fluid pressure on or off
+    void OutputCVFEMTiming(bool on) { output_CVFEM_timing = on; }   // per-step timing, binding CFL element, dt branch
 
     void AddAdvectionVariable(const char *balanced_variable,
                               const char *new_lhs_liquid, const char *new_rhs_liquid,
@@ -218,6 +221,16 @@ private:
 
     uint32_t counter_smooth_timestep_decrease;
 
+    // S. Scott, 2026-11-20: time-step control for the explicit liquid transport with air (see Apply): a long step moves
+    // liquid with the mobilities of its start and can drain a vadose node past its residual saturation (and empty it),
+    // so the step is set by the largest change of the liquid volume fraction instead of the gentle growth ramp.
+    /// Largest change of the liquid volume fraction (fluid mass liquid / density liquid) of a node over the step,
+    /// nodes with a fixed pressure excluded.
+    double MaxLiquidVolumeChange() const;
+    double last_liquid_volume_change_;
+    static constexpr double liquid_volume_change_target_{0.05};
+    static constexpr double liquid_volume_change_limit_{0.15};
+
     CVFEM_PressureGradientVisitor<dim>
         pres_grad;
 
@@ -255,8 +268,11 @@ private:
     NumIntegral_NT_lhs_nodal_op_N_dV<dim, Element>
         capacitance_lhs_p;
 
+    // S. Scott, 2026-11-20: the gas phases use the two-point operators (CVFEM_TwoPointUpwind_Operators.h); they
+    // behave as the liquid's until ActivateAir() switches their transport to two-point facet velocities
     CVFEM_Upwind_NumIntegral_dNT_op_dN_dV<dim, Element>
-        conductance_p_upwind_liquid,
+        conductance_p_upwind_liquid;
+    CVFEM_TwoPointUpwind_dNT_op_dN_dV<dim>
         conductance_p_upwind_vapor,
         conductance_p_upwind_air;// dormant until ActivateAirPhase()
 
@@ -264,7 +280,8 @@ private:
         capacitance_rhs_p;
 
     CVFEM_Upwind_NumIntegral_dNT_rhsop_g_dV<dim>
-        grav_liq,
+        grav_liq;
+    CVFEM_TwoPointUpwind_rhsop_g_dV<dim>
         grav_vap,
         grav_air;// dormant until ActivateAirPhase()
 

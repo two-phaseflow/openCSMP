@@ -34,6 +34,7 @@ CVFEM_PHX_Scheme<dim>::
         with_zinc,
         with_lithium),
 
+    with_gravity_(with_gravity),   // S. Scott, 2026-11-20: was never initialised, so ActivateAir() skipped the air gravity term
     thermodynamic_density_in_gravity_term_(thermodynamic_density_in_gravity_term),
     verbose(false),
     open_top(false),
@@ -46,6 +47,7 @@ CVFEM_PHX_Scheme<dim>::
 
     smooth_timestep_decrease(false),
     counter_smooth_timestep_decrease(0),
+    last_liquid_volume_change_(0.),
 
     with_split_region_(false), // set in ActivateSplitRegionCoupling()
     open_space_(false),        // set in ActivateSplitRegionCoupling()
@@ -893,8 +895,23 @@ double CVFEM_PHX_Scheme<dim>::Apply()
     // reduction for a while. Otherwise ramp gently back up from last step's dt,
     // capping the per-step growth factor (tighter once dt > 1800 s) and never
     // exceeding largest_timestep.
-    if (smooth_timestep_decrease)
+    if (with_air_ && last_liquid_volume_change_ > 0.5 * liquid_volume_change_target_)
+    {
+        // S. Scott, 2026-11-20: while the liquid is moving (the last step changed a node's liquid volume fraction by
+        // more than half the target), aim at liquid_volume_change_target_ per step, at most doubling or halving the
+        // step; otherwise the normal control below. The CFL check of the pressure loop still caps the step.
+        const double factor{liquid_volume_change_target_ / last_liquid_volume_change_};
+        current_dt = std::min(old_dt * std::min(2., std::max(0.5, factor)), largest_timestep);
+    }
+    else if (smooth_timestep_decrease)
         current_dt *= 0.995;
+    else if (with_air_)
+    {
+        // S. Scott, 2026-11-26: liquid nearly still: grow by up to 20 % per step. The 0.5 % ramp below took thousands
+        // of steps to recover from one cut (HYCOMA: dt stuck near 1 h after a boiling episode); the water-volume control
+        // above and the CFL check of the pressure loop still cap the step.
+        current_dt = std::min(old_dt * 1.2, largest_timestep);
+    }
     else
     {
         timestep_increment_factor += 0.00025;
@@ -904,6 +921,11 @@ double CVFEM_PHX_Scheme<dim>::Apply()
             timestep_increment_factor = 1.01;
         current_dt = std::min(old_dt * timestep_increment_factor, largest_timestep);
     }
+    if (output_CVFEM_timing)   // which branch chose this step (diagnostic)
+        cerr << endl << "[DT] branch=" << (with_air_ && last_liquid_volume_change_ > 0.5 * liquid_volume_change_target_ ? "water-volume"
+                                           : smooth_timestep_decrease ? "smooth-decrease" : with_air_ ? "air-growth" : "ramp")
+             << " dt=" << current_dt << " old_dt=" << old_dt << " last_water_volume_change=" << last_liquid_volume_change_
+             << " largest=" << largest_timestep;
 
 
     bool do_loop(true);
@@ -1004,6 +1026,36 @@ double CVFEM_PHX_Scheme<dim>::Apply()
     // PAUSE();
     return current_dt;
 } // end Apply
+
+// S. Scott, 2026-11-20: see the header
+template <uint32_t dim>
+double CVFEM_PHX_Scheme<dim>::MaxLiquidVolumeChange() const
+{
+    // S. Scott, 2026-11-24: change of the WATER mass (liquid + vapour) as a liquid-equivalent volume fraction. The
+    // liquid-only measure skipped all-vapour nodes (liquid density 0) and missed water leaving a boiling node as vapour,
+    // so the step could double while a vapour-rich node was drained in one step (HYCOMA: under-filled node flipping
+    // between liquid and vapour, then "Negative Volume Factor").
+    const Index mass_key{p_ref.StorageKey("fluid mass liquid")};
+    const Index previous_mass_key{p_ref.StorageKey("previous fluid mass liquid")};
+    const Index vapor_mass_key{p_ref.StorageKey("fluid mass vapor")};
+    const Index previous_vapor_mass_key{p_ref.StorageKey("previous fluid mass vapor")};
+    const Index density_key{p_ref.StorageKey("density liquid")};
+    const Index pressure_key{p_ref.StorageKey("fluid pressure")};
+    constexpr double reference_density{1000.};   // liquid-equivalent volume where the node holds no liquid
+    double maximum{0.};
+    const Region<dim>& region{model.Region("Model")};
+    for (auto node_it = region.NodesBegin(); node_it != region.NodesEnd(); ++node_it)
+    {
+        if ((*node_it)->Status(pressure_key) == DIRICH)
+            continue;
+        const double liquid_density{(*node_it)->Read(density_key)};
+        const double density{liquid_density > 0. ? liquid_density : reference_density};
+        const double water_change{((*node_it)->Read(mass_key) - (*node_it)->Read(previous_mass_key))
+                                  + ((*node_it)->Read(vapor_mass_key) - (*node_it)->Read(previous_vapor_mass_key))};
+        maximum = std::max(maximum, std::fabs(water_change) / density);
+    }
+    return maximum;
+}
 
 /** book keeping of variables for transient calculations */
 template <uint32_t dim>
@@ -1237,7 +1289,17 @@ void CVFEM_PHX_Scheme<dim>::AdvectionDiffusionLoops()
         }
         else
         {
-            do_loop = false;   // both criteria satisfied — step accepted
+            // S. Scott, 2026-11-20: with air, a step that moved too much liquid in or out of a node is retried at the
+            // target change (see MaxLiquidVolumeChange); the change of an accepted step sets the next step in Apply
+            const double liquid_volume_change{with_air_ ? MaxLiquidVolumeChange() : 0.};
+            if (liquid_volume_change > liquid_volume_change_limit_)
+                ResetAndCutTimestep(current_dt * liquid_volume_change_target_ / liquid_volume_change,
+                                    "liquid volume change", /*smooth_decrease*/false, /*reset_counter*/true);
+            else
+            {
+                last_liquid_volume_change_ = liquid_volume_change;
+                do_loop = false;   // all criteria satisfied — step accepted
+            }
         }
     }
 } // end AdvectionDiffusionLoops
@@ -2681,6 +2743,14 @@ void CVFEM_PHX_Scheme<dim>::ActivateAir(
 
     // 3. transport: flip the guard bool
     transport.ActivateAir();
+    // S. Scott, 2026-11-20: the constructor's transport.WithGravityComponentAllPhases() ran before air was active and
+    // skipped the air transport; without this the air moved without buoyancy (test-208)
+    if (with_gravity_) fv_transport_air.WithGravityComponent();
+    // Two-point facet fluxes for the gas phases, in the transport and (through the two-point operators below) in the
+    // pressure equation: each gas phase is then in hydrostatic balance on its own, and in an element that straddles
+    // a water table the air flux does not pick up the liquid's hydrostatic pressure gradient (test-211)
+    fv_transport_air.UseTwoPointFacetVelocities(true);
+    fv_transport_vapor.UseTwoPointFacetVelocities(true);
 
     // 4. equilibrator setter
     equilibrator_properties.ActivateAir(humidity_air_top, treat_air_and_vapor_as_mixture, treat_air_and_vapor_as_hydraulic_mixture, rain_mm_per_year);
