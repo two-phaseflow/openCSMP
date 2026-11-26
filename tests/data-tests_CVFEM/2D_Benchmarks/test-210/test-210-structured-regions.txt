@@ -1,7 +1,0 @@
-no properties
-
-TOP
-BOTTOM
-LEFT
-RIGHT
-HOST

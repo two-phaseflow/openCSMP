@@ -211,7 +211,7 @@ std::map<double, double> CVFEM_RechargeMound_Test::WaterTable() const
                                                                           (*node_it)->Read(air_saturation_key)};
   std::map<double, double> water_table;
   for (const auto& [x, column] : columns) {
-    if (column.size() < 3U)   // a node off the mesh columns (test-211c shifts one node row sideways), not a column
+    if (column.size() < 3U)   // a node off the mesh columns (test-211b shifts one node row sideways), not a column
       continue;
     auto highest{column.begin()};
     while (std::next(highest) != column.end() && std::next(highest)->second.second < saturated)

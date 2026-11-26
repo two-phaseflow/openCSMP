@@ -1,4 +1,4 @@
-STEADY CONDUCTION IN AN AXISYMMETRIC ANNULUS (CVFEM_AxisymmetricConduction_Test)
+STEADY CONDUCTION IN AN AXISYMMETRIC ANNULUS -- unstructured mesh (CVFEM_AxisymmetricConduction_Test)
 
 # (block2) default property values
 # Annulus about the axis x = 0, r 10-210 m, 400 m high. Inner wall 150 C, outer wall 50 C, top and base insulated.

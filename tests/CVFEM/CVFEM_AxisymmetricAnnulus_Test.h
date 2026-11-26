@@ -27,11 +27,11 @@
  *  Initialisation follows tests/CVFEM/CVFEM_2D_VVCase.
  *
  *  References:
- *  - conduction (test-210a/b): steady radial conduction through a hollow cylinder, Carslaw H.S. & Jaeger J.C.
+ *  - conduction (test-210a): steady radial conduction through a hollow cylinder, Carslaw H.S. & Jaeger J.C.
  *    (1959), Conduction of Heat in Solids, 2nd ed., Oxford University Press, chapter 7; Incropera F.P.,
  *    DeWitt D.P., Bergman T.L. & Lavine A.S. (2007), Fundamentals of Heat and Mass Transfer, 6th ed., Wiley,
  *    section 3.3 (radial systems);
- *  - radial flow (test-210c/d): T(r) above follows by integrating the steady radial advection-conduction equation
+ *  - radial flow (test-210b): T(r) above follows by integrating the steady radial advection-conduction equation
  *    twice. It is the steady, finite-annulus counterpart of the radial thermal-injection problem of Avdonin N.A.
  *    (1964), "Some formulas for calculating the temperature field of a stratum subject to thermal injection",
  *    Neft' i Gaz, a standard verification case for porous-flow codes (Ross B., Mercer J.W., Thomas S.D. & Lester B.H.

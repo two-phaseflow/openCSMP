@@ -25,7 +25,7 @@
  *  "pore volume", divided by L and rho_l) and K from the liquid density and viscosity at the base. The model water
  *  table in each mesh column is where the fluid pressure crosses p_atm, interpolated linearly between nodes.
  *
- *  With rain 0 (test-211a) the water table stays at the outlet level: the exact solution is no flow, and the same
+ *  With rain 0 (test-211b) the water table stays at the outlet level: the exact solution is no flow, and the same
  *  criteria check that the water table has not moved.
  *
  *  Pass criteria, after the configured duration:

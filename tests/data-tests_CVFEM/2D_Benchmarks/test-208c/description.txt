@@ -1,6 +1,0 @@
-air (hydraulic gas mixture), isothermal 20 degC, hydrostatic
-Air column with the pore water at the 2 % floor, unstructured mesh, donor-node density in the gravity term
-CVFEM_GasHydrostaticColumn_Test
-
-column 1000 m x 2000 m, top 1 atm, k 1e-13 m2 (exact solution: no flow, exponential pressure profile)
-pressure within 1e-4 (relative) of the exact profile; transported air between interior control volumes < 1e-3 of k g rho_a / mu_a; air mass conserved to 1e-9

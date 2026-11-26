@@ -1,6 +1,6 @@
-pure water + air (hydraulic mixture), isothermal 20 degC
-Steady groundwater mound under uniform rain vs Dupuit, structured mesh
+air (hydraulic gas mixture), isothermal 20 degC, static water table
+Static water table with air above it on a mesh with obtuse triangles across the water table
 CVFEM_RechargeMound_Test
 
-box 600 m x 200 m, rain 0.96 m/yr, outlet water level 100 m, k 2e-13 m2, 25 yr
-water table at the divide within 2 %, every column (outlet excluded) within 5 % of h^2 = h0^2 + (W/K)(L^2 - x^2)
+box 600 m x 200 m, water table 100 m above the base, no rain, 0.5 yr (exact solution: no flow); 29 negative edge coefficients join a water-table node to a node below it
+water table within 2 % of 100 m at the divide and 5 % in every column

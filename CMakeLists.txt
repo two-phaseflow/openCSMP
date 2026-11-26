@@ -1154,6 +1154,7 @@ if(BUILD_CVFEM_TESTS)
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/CVFEM/CVFEM_GasHydrostaticColumn_Test.cpp
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/CVFEM/CVFEM_AirCompressionBox_Test.cpp
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/CVFEM/CVFEM_AxisymmetricAnnulus_Test.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/CVFEM/CVFEM_AxisymmetricCylinder_Test.cpp
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/CVFEM/CVFEM_RechargeMound_Test.cpp
             ${CVFEM_HSS_LIB_SOURCES}
     )

@@ -1,5 +1,5 @@
 air (hydraulic gas mixture), isothermal 20 degC, hydrostatic
-Air column with the pore water at the 2 % floor, structured mesh, facet-mean density in the gravity term
+Air column with the pore water at the 2 % floor, unstructured mesh, facet-mean density in the gravity term
 CVFEM_GasHydrostaticColumn_Test
 
 column 1000 m x 2000 m, top 1 atm, k 1e-13 m2 (exact solution: no flow, exponential pressure profile)

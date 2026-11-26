@@ -1,10 +1,9 @@
-GROUNDWATER MOUND UNDER UNIFORM RAIN (CVFEM_RechargeMound_Test)
+STATIC WATER TABLE WITH AIR ABOVE IT ON A MESH WITH OBTUSE TRIANGLES ACROSS IT, NO RAIN (CVFEM_RechargeMound_Test)
 
 # (block2) default property values
-# Box 600 m x 200 m, isothermal 20 C, air (hydraulic mixture) with rain 0.96 m/yr on the land surface (set by the
-# test). Land surface at 1 atm; outlet water level 100 m above the base on the RIGHT side (set by the test); divide
-# (LEFT) and base closed. Dupuit: h(0) = sqrt(h0^2 + (W/K) L^2) ~ 125 m. Starts with the water table flat at 100 m
-# (air above it at the residual liquid saturation 0.3); the rain builds the mound.
+# Box 600 m x 200 m, isothermal 20 C, air (hydraulic mixture), no rain. Water table flat at the outlet level, 100 m
+# above the base (set by the test), water at rest below it and air at rest above it (residual liquid saturation 0.3),
+# so the exact solution is no flow. Land surface at 1 atm; divide (LEFT) and base closed.
 fluid pressure			101325.				# [Pa] initial guess; replaced by the hydrostatic initialisation
 temperature			20.				# [C]
 permeability			2.e-13				# [m2]
@@ -37,6 +36,6 @@ RIGHT	DIRICH	temperature		20.	20.
 # (block6) csmp::Boundary properties
 
 # (block7) run settings [years]
-duration	25.
+duration	0.5
 time increment	1.
-output time	25.
+output time	0.5

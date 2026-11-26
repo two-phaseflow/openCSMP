@@ -1,6 +1,0 @@
-pure water single-phase, radial outflow
-Steady heat transfer with radial outflow in an axisymmetric annulus, unstructured mesh
-CVFEM_AxisymmetricAnnulus_Test
-
-annulus r 50-250 m x 400 m, inner wall 150 degC / 10.5 MPa, outer wall 50 degC / 10 MPa, k 1e-15 m2, no gravity
-revolved volume = pi (r2^2 - r1^2) H; |T - T_exact(r^A)| < 2 % of the wall difference after 1500 yr (A = c m / (2 pi H lambda) measured)

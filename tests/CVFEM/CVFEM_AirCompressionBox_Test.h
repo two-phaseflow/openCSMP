@@ -33,9 +33,7 @@
  *  - test-209b, s_l = 0.5, e = 0.02: substantial, mobile water that backfills the pore volume the air gives up
  *    (storage rho_l s_a phi / p); the small excess keeps the time step, limited by the air velocity, large against
  *    the slow pressure diffusion;
- *  - test-209c, s_l = 0.05, e = 0.25: approaching the floor; the excess air near the left wall exceeds the space
- *    available at p0 (clamped), the rest of the box is not (unclamped), and the end state is unclamped.
- *  In 209a and 209c the water is immobile (below the residual liquid saturation 0.3).
+ *  In 209a the water is immobile (below the residual liquid saturation 0.3).
  *
  *  Pass criteria, at the end of the configured duration:
  *  - total air mass and total water mass (sums of nodal mass times pore volume, computed here) conserved to

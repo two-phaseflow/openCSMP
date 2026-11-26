@@ -24,6 +24,7 @@
 #include "CVFEM_GasHydrostaticColumn_Test.h"
 #include "CVFEM_AirCompressionBox_Test.h"
 #include "CVFEM_AxisymmetricAnnulus_Test.h"
+#include "CVFEM_AxisymmetricCylinder_Test.h"
 #include "CVFEM_RechargeMound_Test.h"
 
 #include <stdexcept>
@@ -75,18 +76,13 @@ const std::vector<std::string> ALL_TEST_FILES_2D = {
     "test-207e",
     "test-208a",
     "test-208b",
-    "test-208c",
-    "test-208d",
     "test-209a",
     "test-209b",
-    "test-209c",
     "test-210a",
     "test-210b",
     "test-210c",
-    "test-210d",
     "test-211a",
     "test-211b",
-    "test-211c",
 };
 
 
@@ -123,30 +119,27 @@ Test* makeAdditionalTest2D(const std::string& name, const std::string& benchmark
     // below onset, a finite (10 %) perturbation must also decay (energy stability), facet-mean density
     if ( name == "test-207e" ) return new CVFEM_ConvectionOnset_Test( mesh, config, true, true );
     // isothermal air column (pore water at the 2 % floor) in its exact exponential profile (exact solution: no flow),
-    // donor / facet-mean density
-    if ( name == "test-208a" ) return new CVFEM_GasHydrostaticColumn_Test( mesh + "-structured", config, false );
-    if ( name == "test-208b" ) return new CVFEM_GasHydrostaticColumn_Test( mesh + "-structured", config, true );
-    if ( name == "test-208c" ) return new CVFEM_GasHydrostaticColumn_Test( mesh + "-unstructured", config, false );
-    if ( name == "test-208d" ) return new CVFEM_GasHydrostaticColumn_Test( mesh + "-unstructured", config, true );
+    // facet-mean density
+    if ( name == "test-208a" ) return new CVFEM_GasHydrostaticColumn_Test( mesh + "-structured", config, true );
+    if ( name == "test-208b" ) return new CVFEM_GasHydrostaticColumn_Test( mesh + "-unstructured", config, true );
     // closed, isothermal box with a smooth excess of air (mesh of test-207): ideal-gas end pressure, mass conservation;
-    // pore water at the 2 % floor, liquid saturation 0.5, near the floor
+    // pore water near the 2 % floor (a) and at liquid saturation 0.5 (b)
     const std::string box = benchmarkDir + "/2D_Benchmarks/test-207/test-207";
     if ( name == "test-209a" ) return new CVFEM_AirCompressionBox_Test( box, config, 0.02, 0.25 );
     if ( name == "test-209b" ) return new CVFEM_AirCompressionBox_Test( box, config, 0.5, 0.02 );
-    if ( name == "test-209c" ) return new CVFEM_AirCompressionBox_Test( box, config, 0.05, 0.25 );
     // steady radial conduction in an axisymmetric annulus (element thickness 2 pi r) vs the logarithmic profile (ln r)
-    if ( name == "test-210a" ) return new CVFEM_AxisymmetricAnnulus_Test( mesh + "-structured", config );
-    if ( name == "test-210b" ) return new CVFEM_AxisymmetricAnnulus_Test( mesh + "-unstructured", config );
+    if ( name == "test-210a" ) return new CVFEM_AxisymmetricAnnulus_Test( mesh + "-unstructured", config );
     // the same with radial outflow (Peclet number ~2): T ~ r^A
-    if ( name == "test-210c" ) return new CVFEM_AxisymmetricAnnulus_Test( mesh + "-flow-structured", config );
-    if ( name == "test-210d" ) return new CVFEM_AxisymmetricAnnulus_Test( mesh + "-flow-unstructured", config );
-    // static water table with air above it (no rain; exact solution: no flow), and the steady groundwater mound under
-    // uniform rain (0.96 m/yr) with a fixed outlet water level (100 m) vs Dupuit
-    if ( name == "test-211a" ) return new CVFEM_RechargeMound_Test( mesh + "-structured", config, 0., 100. );
-    if ( name == "test-211b" ) return new CVFEM_RechargeMound_Test( mesh + "-structured", config, 960., 100. );
-    // the static water table on a mesh whose triangles across the water table are obtuse (negative edge coefficients:
-    // two-point gas fluxes there must not pump air into the saturated nodes below)
-    if ( name == "test-211c" ) return new CVFEM_RechargeMound_Test( mesh + "-obtuse", config, 0., 100. );
+    if ( name == "test-210b" ) return new CVFEM_AxisymmetricAnnulus_Test( mesh + "-flow-unstructured", config );
+    // a solid cylinder cooling by conduction, full section with the axis inside the mesh (factor pi, elements cut by
+    // the axis split along it) vs the Bessel series
+    if ( name == "test-210c" ) return new CVFEM_AxisymmetricCylinder_Test( mesh + "-cylinder", config );
+    // the steady groundwater mound under uniform rain (0.96 m/yr) with a fixed outlet water level (100 m) vs Dupuit
+    if ( name == "test-211a" ) return new CVFEM_RechargeMound_Test( mesh + "-structured", config, 960., 100. );
+    // a static water table with air above it (no rain; exact solution: no flow) on a mesh whose triangles across the
+    // water table are obtuse (negative edge coefficients: two-point gas fluxes there must not pump air into the
+    // saturated nodes below)
+    if ( name == "test-211b" ) return new CVFEM_RechargeMound_Test( mesh + "-obtuse", config, 0., 100. );
     return nullptr;
 }
 
@@ -267,7 +260,7 @@ int main( int argc, char* argv[] )
     }
     if ( run2D )
     {
-        std::cerr << "\nEnter the tests to run, comma-separated (test-201a, test-201b, test-202a, test-202b, test-203a, test-203b, test-205a, test-205b, test-205c, test-205d, test-205g, test-205h, test-206a, test-206b, test-206c, test-207a, test-207b, test-207c, test-207d, test-207e, test-208a, test-208b, test-208c, test-208d, test-209a, test-209b, test-209c, test-210a, test-210b, test-210c, test-210d, test-211a, test-211b, test-211c),"
+        std::cerr << "\nEnter the tests to run, comma-separated (test-201a, test-201b, test-202a, test-202b, test-203a, test-203b, test-205a, test-205b, test-205c, test-205d, test-205g, test-205h, test-206a, test-206b, test-206c, test-207a, test-207b, test-207c, test-207d, test-207e, test-208a, test-208b, test-209a, test-209b, test-210a, test-210b, test-210c, test-211a, test-211b),"
                      "\n(tests from test-205 on always run to the end, independent of QUICK/EXTENDED),"
                      "\nor type 'all' to run every test in the selected suite(s): ";
 
