@@ -430,6 +430,10 @@ private:
     void CalculateAbsoluteVariables( Node<dim>* n );
     void UpdateEquilibratorVariables( Node<dim>* n );
     void Equilibrate( Node<dim>* n );
+    /// S. Scott, 2026-11-26 (with air, on by default; OCSMP_CONSTANT_VOLUME_FLASH=0 = off): a boiling/steam node whose water does not fit
+    /// its pore space at the solved pressure is re-equilibrated at the lowest higher pressure where it fits (or turns
+    /// liquid); mass and enthalpy unchanged, the node pressure is stored.
+    void ConstantVolumeFlash( Node<dim>* n );
     void UpdateCSMPVariables( Node<dim>* n );
     void VolumeFactorComputations( Node<dim>* n );
     void PrepareVariablesForStorage();

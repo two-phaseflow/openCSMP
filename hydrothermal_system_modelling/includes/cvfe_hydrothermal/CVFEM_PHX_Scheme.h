@@ -76,6 +76,12 @@ public:
 
     void SetBrickWallLimiterTo(bool limit);   // switch brick wall limiter for fluid pressure on or off
     void OutputCVFEMTiming(bool on) { output_CVFEM_timing = on; }   // per-step timing, binding CFL element, dt branch
+    /// S. Scott, 2026-11-26: the air phase's CFL time-step limit is multiplied by this factor (default 10). Air carries
+    /// little mass or heat; overshooting air mass is clipped at zero (air created, water unchanged).
+    void SetAirCFLFactor(double factor) { air_cfl_factor_ = factor; }
+    /// With air: a step is rejected if a node's water volume changes by more than `limit`, and the next step aims at
+    /// `target` (defaults 0.05 / 0.15; looser values run faster but the water table may not settle: test-211b).
+    void SetWaterVolumeChangeControl(double target, double limit) { liquid_volume_change_target_ = target; liquid_volume_change_limit_ = limit; }
 
     void AddAdvectionVariable(const char *balanced_variable,
                               const char *new_lhs_liquid, const char *new_rhs_liquid,
@@ -227,9 +233,11 @@ private:
     /// Largest change of the liquid volume fraction (fluid mass liquid / density liquid) of a node over the step,
     /// nodes with a fixed pressure excluded.
     double MaxLiquidVolumeChange() const;
+    void ReportLargestWaterVolumeChange() const;   // diagnostic, with OutputCVFEMTiming
     double last_liquid_volume_change_;
-    static constexpr double liquid_volume_change_target_{0.05};
-    static constexpr double liquid_volume_change_limit_{0.15};
+    double air_cfl_factor_{10.};
+    double liquid_volume_change_target_{0.05};
+    double liquid_volume_change_limit_{0.15};
 
     CVFEM_PressureGradientVisitor<dim>
         pres_grad;

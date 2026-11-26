@@ -5,6 +5,7 @@
 #include <cmath>
 #include <algorithm>
 #include <sstream>
+#include <cstdlib>
 
 #include "NaClH2OPropertiesVisitorPHX.h"
 #include "ConvertConcentrationUnitsNaCl.h"
@@ -407,6 +408,12 @@ void NaClH2OPropertiesVisitorPHX<dim>::Visit( Node<dim>* n )
     // ****************************************
 
     Equilibrate( n );
+    {
+        // on by default with air; OCSMP_CONSTANT_VOLUME_FLASH=0 switches it off (comparisons)
+        static const bool constant_volume_flash{!std::getenv("OCSMP_CONSTANT_VOLUME_FLASH") || std::atoi(std::getenv("OCSMP_CONSTANT_VOLUME_FLASH")) > 0};
+        if (with_air && constant_volume_flash)
+            ConstantVolumeFlash( n );
+    }
 
     if(verbose_output)
         log_stage("post_equil");            // Bulk, Liquid, Vapor, Salt populated
@@ -611,6 +618,17 @@ void NaClH2OPropertiesVisitorPHX<dim>::CalculateAbsoluteVariables( Node<dim>* n 
 
     mt() = mtp() + dml_ + dmv_;
     if(with_air) mt() += dma_;
+
+    // S. Scott, 2026-11-26: air may be created. With a relaxed air CFL (CVFEM_PHX_Scheme::SetAirCFLFactor) an explicit
+    // air step can overshoot a node's air mass below zero; it is set to zero and the total raised by the same amount,
+    // so the water part mt - ma is unchanged. The created air is tiny (air density ~1 kg/m3).
+    if (with_air && ma() < 0.)
+    {
+        mt()  -= ma();
+        dma_  -= ma();
+        ma()   = 0.;
+        if (hCa() < 0.) { hCa() = 0.; dhCa_ = phi() * (hCa() - hCap()); }
+    }
 
     // Round-off dust from exact depletion: when a node drains fully, the
     // cancellation mtp - mlp can land a machine-epsilon hair below zero
@@ -877,6 +895,56 @@ void NaClH2OPropertiesVisitorPHX<dim>::Equilibrate( Node<dim>* n )
     state()       = double(current_state);
 
 }// end Equilibrate
+
+template<uint32_t dim>
+void NaClH2OPropertiesVisitorPHX<dim>::ConstantVolumeFlash( Node<dim>* n )
+{
+    // S. Scott, 2026-11-26. A boiling node at low pressure (~1 bar under a water table) whose water does not fit its pore
+    // space at the solved pressure (constant-pressure equilibration lets ~1 % steam by mass take many pore volumes) is
+    // re-equilibrated at the lowest higher pressure where it fits or turns liquid (typically a few percent higher);
+    // mass and enthalpy are unchanged. Without it such nodes reach volume factors of 100-30000 and the pressure spikes.
+    // Only boiling or steam nodes below the critical point with a free pressure: single-phase liquid that does not fit
+    // would need huge pressures, so it is left to the normal pressure correction
+    if (!(Bulk.state == VL || Bulk.state == VLH || Bulk.state == V) || t_ >= 370. || p.Flag() == DIRICH || t.Flag() == DIRICH)
+        return;
+    auto fit = [&]() {   // water held / water that fits at the current equilibrium, as in VolumeFactorComputations
+        const double m_eq{with_air ? Bulk.rho * (1. - sa()) : Bulk.rho};
+        const double m_transported{with_air ? mt() - ma() : mt()};
+        return m_eq > 0. ? m_transported / m_eq : 1.e30;
+    };
+    const double vf0{fit()};
+    if (vf0 < 1.05)
+        return;
+    const double p0{p_};
+    auto equilibrate_at = [&](double pressure) {
+        p_ = pressure; p_current_ = pressure;
+        if (with_air) ComputeAirSaturationAndDensity(ma(), t_, pressure, pressure);
+        phi_ = phi() * (1. - (with_air ? sa() : 0.));
+        Equilibrate(n);
+        return fit();
+    };
+    double lo{p0}, hi{p0 * 1.05};
+    double vf_hi{equilibrate_at(hi)};
+    int k{0};
+    while (vf_hi > 1. && Bulk.state != L && k < 40) { lo = hi; hi *= 1.2; vf_hi = equilibrate_at(hi); ++k; }
+    if (k >= 40) { equilibrate_at(p0); return; }   // no fit within a factor ~1500: leave the node alone
+    for (int i{0}; i < 40 && hi / lo > 1. + 1.e-4; ++i)
+    {
+        const double mid{std::sqrt(lo * hi)};
+        const double vf{equilibrate_at(mid)};
+        if (vf > 1. && Bulk.state != L) lo = mid; else hi = mid;
+    }
+    const double vf_end{equilibrate_at(hi)};
+    p() = hi;
+    n->Store(p_key, p);
+    static int reported{0};
+    if (reported < 200)
+    {
+        ++reported;
+        cerr << endl << "[CV-FLASH] x=" << n->x() << " y=" << n->y() << " T=" << t_ << " p " << p0 << " -> " << hi
+             << " Pa (x" << hi / p0 << ")  volume factor " << vf0 << " -> " << vf_end << "  state " << Bulk.state;
+    }
+}
 
 template<uint32_t dim>
 void NaClH2OPropertiesVisitorPHX<dim>::UpdateCSMPVariables( Node<dim>* n )

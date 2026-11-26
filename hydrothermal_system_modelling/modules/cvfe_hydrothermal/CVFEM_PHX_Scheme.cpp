@@ -1057,6 +1057,34 @@ double CVFEM_PHX_Scheme<dim>::MaxLiquidVolumeChange() const
     return maximum;
 }
 
+/** diagnostic (OutputCVFEMTiming): the node with the largest water volume change of a rejected step */
+template <uint32_t dim>
+void CVFEM_PHX_Scheme<dim>::ReportLargestWaterVolumeChange() const
+{
+    const char* names[]{"fluid mass liquid", "previous fluid mass liquid", "fluid mass vapor", "previous fluid mass vapor",
+                        "density liquid", "fluid pressure", "temperature", "saturation liquid", "saturation vapor",
+                        "saturation air", "pore volume", "fluid density"};
+    std::vector<Index> keys;
+    for (const char* name : names) keys.push_back(p_ref.StorageKey(name));
+    double maximum{0.};
+    const Node<dim>* worst{nullptr};
+    const Region<dim>& region{model.Region("Model")};
+    for (auto node_it = region.NodesBegin(); node_it != region.NodesEnd(); ++node_it)
+    {
+        if ((*node_it)->Status(keys[5]) == DIRICH)
+            continue;
+        const double density{(*node_it)->Read(keys[4]) > 0. ? (*node_it)->Read(keys[4]) : 1000.};
+        const double change{std::fabs((*node_it)->Read(keys[0]) - (*node_it)->Read(keys[1])
+                                      + (*node_it)->Read(keys[2]) - (*node_it)->Read(keys[3])) / density};
+        if (change > maximum) { maximum = change; worst = *node_it; }
+    }
+    if (!worst)
+        return;
+    cerr << endl << "[WATER-CHANGE] dt=" << current_dt << " change=" << maximum << " x=" << worst->x() << " y=" << worst->y();
+    for (size_t k{0U}; k < keys.size(); ++k)
+        cerr << " | " << names[k] << "=" << worst->Read(keys[k]);
+}
+
 /** book keeping of variables for transient calculations */
 template <uint32_t dim>
 void CVFEM_PHX_Scheme<dim>::AdvanceTransientVariables()
@@ -1293,8 +1321,12 @@ void CVFEM_PHX_Scheme<dim>::AdvectionDiffusionLoops()
             // target change (see MaxLiquidVolumeChange); the change of an accepted step sets the next step in Apply
             const double liquid_volume_change{with_air_ ? MaxLiquidVolumeChange() : 0.};
             if (liquid_volume_change > liquid_volume_change_limit_)
+            {
+                if (output_CVFEM_timing)
+                    ReportLargestWaterVolumeChange();
                 ResetAndCutTimestep(current_dt * liquid_volume_change_target_ / liquid_volume_change,
                                     "liquid volume change", /*smooth_decrease*/false, /*reset_counter*/true);
+            }
             else
             {
                 last_liquid_volume_change_ = liquid_volume_change;
@@ -1437,7 +1469,7 @@ void CVFEM_PHX_Scheme<dim>::PressureLoop()
         if( with_air_) model.MinMaxOf("courant air", cfl_min_a, cfl_max_a);
 
         cfl_dt = std::min(cfl_min_l, cfl_min_v);
-        if( with_air_) cfl_dt = std::min(cfl_dt, cfl_min_a);
+        if( with_air_) cfl_dt = std::min(cfl_dt, air_cfl_factor_ * cfl_min_a);   // air factor: SetAirCFLFactor
 
         if (output_CVFEM_timing)
         {
