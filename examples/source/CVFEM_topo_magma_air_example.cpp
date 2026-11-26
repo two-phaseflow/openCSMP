@@ -377,7 +377,8 @@ void CVFEM_topo_magma_air_example::Run()
         Point<2U> p2( 5000., 2000. );
 
 
-        //model.FormRectangularRegion( "CHAMBER", p1, p2 );
+        // S. Scott, 2026-11-26: the mesh has no CHAMBER region, so with this line commented out the run had no magma
+        model.FormRectangularRegion( "CHAMBER", p1, p2 );
 
         model.                      CreateProperty("porous flag element",                      "PFlagE",       "none", SCALAR, ELEMENT);
         model.                      CreateProperty("porous flag node",                         "PFlagN",       "none", SCALAR, NODE);
