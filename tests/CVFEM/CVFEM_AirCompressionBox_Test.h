@@ -58,6 +58,8 @@
  *  Reference: ideal-gas law (Boyle's law at constant temperature), e.g. Wallace J.M. & Hobbs P.V. (2006),
  *  Atmospheric Science: An Introductory Survey, 2nd ed., Academic Press, section 3.1.
  *
+ *  Mesh: the test-207 box.
+ *
  *  @date 20.11.2026
  */
 

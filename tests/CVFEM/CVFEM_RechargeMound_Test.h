@@ -40,6 +40,11 @@
  *  Reference: the Dupuit-Forchheimer approximation for unconfined flow with uniform recharge, e.g. Fetter C.W.
  *  (2001), Applied Hydrogeology, 4th ed., Prentice Hall, section 4.14; Bear J. (1972), Dynamics of Fluids in Porous
  *  Media, Elsevier.
+ *
+ *  Meshes: test-211-structured, 30 x 20 rectangles of 20 m x 10 m split along alternating diagonals; test-211-obtuse,
+ *  the same with the node row 10 m below the water table shifted sideways by +-8 m, alternately, so that 29 triangle
+ *  edges with a negative finite-element coefficient join a water-table node to a node below it.
+ *
  *  @date 20.11.2026
  */
 

@@ -39,6 +39,10 @@
  *    profile of Bredehoeft J.D. & Papadopulos I.S. (1965), "Rates of vertical groundwater movement estimated from the
  *    Earth's thermal profile", Water Resources Research 1(2), 325-328.
  *
+ *
+ *  Meshes: test-210-unstructured and test-210-flow-unstructured, the unstructured test-205 mesh (gmsh Frontal-Delaunay,
+ *  target size 25 m) scaled by 0.4 and shifted by 10 m (conduction) or 50 m (radial flow) in x.
+ *
  *  @date 20.11.2026
  */
 

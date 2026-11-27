@@ -46,6 +46,9 @@
  *  isothermal atmosphere, Wallace J.M. & Hobbs P.V. (2006), Atmospheric Science: An Introductory Survey, 2nd ed.,
  *  Academic Press, section 3.2 (the hydrostatic equation, scale height H = R T / g).
  *
+ *  Meshes: test-208-structured (20 x 40 squares of 50 m split along alternating diagonals) and test-208-unstructured
+ *  (gmsh Frontal-Delaunay triangles, target size 50 m), the test-205 meshes scaled by 2.
+ *
  *  @date 20.11.2026
  */
 

@@ -23,6 +23,9 @@
  *
  *  Reference: Carslaw H.S. & Jaeger J.C. (1959), Conduction of Heat in Solids, 2nd ed., Oxford University Press,
  *  section 7.4 (the infinite cylinder with constant surface temperature) and section 3.3 (the slab).
+ *  Mesh: test-210-cylinder, gmsh Frontal-Delaunay triangles of target size 23 m over -200 m <= x <= 200 m,
+ *  -400 m <= y <= 0. The axis is not a mesh line: 30 of the 776 triangles straddle it.
+ *
  *  @date 26.11.2026
  */
 
